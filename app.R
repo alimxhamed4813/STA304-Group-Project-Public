@@ -360,7 +360,7 @@ ui <- page_navbar(
          tableOutput("gpa_tbl"))
   ),
   
-   # ---- Data (DONE) ----
+  # ---- Data (DONE) ----
   nav_panel(
     "Data",
     card(
@@ -406,9 +406,18 @@ ui <- page_navbar(
       card(
         card_header("What We Asked"),
         tags$ul(
-          tags$li(strong("Study and GPA: Number of courses taken this semester, weekly study hours outside of class, and last sessional GPA in six ranges.")),
-          tags$li(strong("Employment: Current employment status, weekly work hours, and work sector.")),
-          tags$li(strong("Work experience: One-way commute time, physical and mental effort during a typical work shift (rated from 1 to 10), and missed coursework deadlines due to work."))
+          tags$li(
+            strong("Study and GPA: "),
+            "Number of courses taken this semester, weekly study hours outside of class, and last sessional GPA in six ranges."
+          ),
+          tags$li(
+            strong("Employment: "),
+            "Current employment status, weekly work hours, and work sector."
+          ),
+          tags$li(
+            strong("Work experience: "),
+            "One-way commute time, physical and mental effort during a typical work shift (rated from 1 to 10), and missed coursework deadlines due to work."
+          )
         )
       )
     ),
@@ -505,7 +514,7 @@ server <- function(input, output, session) {
     sprintf("%.0f%%", 100 * mean(d$`Missed a deadline` == "Yes"))
   })
   
-# ---- Distributions (DONE) ----
+  # ---- Distributions (DONE) ----
   observeEvent(input$dist_var, {
     r <- var_range(input$dist_var)
     updateSliderInput(session, "dist_lim", min = r[1], max = r[2], value = r)
@@ -621,7 +630,7 @@ server <- function(input, output, session) {
       note
     )
   })
-
+  
   # ---- Relationships & Regression (DONE) ----
   
   # Scatterplot data: two chosen variables, complete cases only
@@ -853,7 +862,7 @@ server <- function(input, output, session) {
     )
   })
   
-# ---- GPA (DONE) ----
+  # ---- GPA (DONE) ----
   gpa_data <- reactive({
     d <- filtered()
     if (isTRUE(input$gpa_drop_na)) d <- d |> filter(!is.na(`GPA band`))
@@ -911,7 +920,7 @@ server <- function(input, output, session) {
     )
   })
   
-# ---- Data Table (DONE) ----
+  # ---- Data Table (DONE) ----
   output$data_count <- renderText({
     sprintf("%d of %d responses shown", nrow(filtered()), nrow(df))
   })
@@ -933,7 +942,7 @@ server <- function(input, output, session) {
         `Weekly study hours` = `Weekly study hours`,
         `GPA range` = as.character(`GPA band`),
         `Weekly work hours` = `Weekly work hours`,
-        `One-way commute to campus (min)` = `Commute time (minutes)`,
+        `Commute time (minutes)` = `Commute time (minutes)`,
         `Work effort rating (1-10)` = `Work energy rating`,
         `Work sector` = `Work sector`,
         `Missed coursework deadline due to work` = as.character(`Missed a deadline`)
@@ -951,10 +960,10 @@ server <- function(input, output, session) {
       )
     )
   }, server = TRUE)
-
-# ---- About ----
-# Realistically might not need any server code for this tab because its just text
-# but if we do, it would go here.
+  
+  # ---- About ----
+  # Realistically might not need any server code for this tab because its just text
+  # but if we do, it would go here.
 }
 
 shinyApp(ui, server)
