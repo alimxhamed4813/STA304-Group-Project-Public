@@ -1,0 +1,26 @@
+STA304 Exploratory Data Analysis Feedback
+
+Disclaimer: in the process of constructing feedback, I recorded my audio and got AI to rephrase my feedback in a concise, clear manner so that I can mark faster + you get more detailed feedback. I did not run any of the assignments through AI.
+
+Submission
+
+You attached only the .qmd file and did not include the .pdf. The instructions required both files, so the PDF needed to be part of the submission.
+
+Prerequisites section
+
+Your report opens with a prerequisites section that tells the reader to install R and RStudio before rendering, followed by steps for rendering the .qmd file. The instructions already asked you to submit both the .pdf and the .qmd or .tex file, so the reader should not need to render anything. The reader of this report is the marker, who reads the PDF. Anyone who wants to see how it was built can open the .qmd file. Setup instructions like these do not belong in the report itself. If you want to keep them, put them in a separate file.
+
+Figure 2 jitter
+
+The points in Figure 2 are jittered, but neither the plot nor the caption says so. Your code only sets a width, with no height, so the jitter is horizontal and the values themselves are not changed. That is fine for a boxplot. Without a note, though, it looks odd that some points are spread further apart horizontally than others when the categories are only No and Yes. Add a line to the caption saying that horizontal jitter was added to reduce overlap.
+
+Figure 5 notation
+
+In Figure 5 you write the correlation coefficient as R. It should be the Greek letter rho, written in math mode as $\rho$.
+
+Grade breakdown
+
+Formatting & Submission (0.15 / 0.2)
+Both the .pdf and the .tex or .qmd submitted (0.05 / 0.1). I deducted 0.05 because the .pdf was not attached, and the instructions required both files.
+
+Total (1.95 / 2)

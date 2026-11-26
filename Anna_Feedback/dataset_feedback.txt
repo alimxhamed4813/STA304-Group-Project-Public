@@ -1,0 +1,6 @@
+Duplicate column
+You have highlighted in red a repeated column in your dataset, which suggests you noticed something was off but did not remove it. Please remove this duplicate. Leaving it in makes it look like you are accepting duplicate responses, which is a serious data issue.
+
+(I'm not going to deduct marks for this, because it's something I wouldn't have noticed if you did not highlight, but for the integrity of your own project I hope to see this REMOVED before the analysis.)
+
+1/1

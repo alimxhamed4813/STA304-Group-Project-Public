@@ -1,0 +1,400 @@
+---
+title: "STA304 Exploratory Data Analysis: Part-Time Work, Study Time, and Academic Performance"
+author:  
+  - Khadija Benza
+  - Abdirashid Einte
+  - Giulian Giannone
+  - Jiayi Guo
+  - Ali Mohamed
+  - Munieba Zia
+date: "October 23, 2026"
+format:
+  pdf:
+    keep-tex: true
+    number-sections: true
+    fig-pos: "H"
+    geometry:
+      - margin=1in
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+library(tidyverse)
+library(easystats)
+library(knitr)
+
+theme_set(theme_minimal(base_size = 11))
+```
+
+```{r}
+#| label: load-data
+raw <- read.csv("Responses.csv", na.strings = c("", "NA", "N/A"))
+
+# GPA bands in increasing order, with readable labels
+gpa_levels <- c("Below 2.3", "2.69 - 2.3", "2.99 - 2.7",
+                "3.29 - 3.0", "3.69 - 3.3", "4.0 - 3.7")
+gpa_labels <- c("Below 2.3", "2.3-2.69", "2.7-2.99",
+                "3.0-3.29", "3.3-3.69", "3.7-4.0")
+df <- raw |>
+  transmute(
+    `Course load`            = course_load,
+    Employed                 = factor(employed, levels = c(0, 1),
+                                      labels = c("No", "Yes")),
+    `Weekly work hours`      = work_hours,
+    `Commute time (minutes)` = commute_time,
+    `Work energy rating`     = work_energy,
+    `Work sector` = case_when(
+      work_sector %in% c("food services", "waitress") ~ "Retail & Services",
+      work_sector %in% c("Education", "research")     ~ "Education & Research",
+      TRUE                                            ~ work_sector),
+    `Weekly study hours`     = study_hrs,
+    `Missed a deadline`      = factor(missed_deadline, levels = c(0, 1),
+                                      labels = c("No", "Yes")),
+    `GPA band`               = factor(sessional_GPA, levels = gpa_levels,
+                                      labels = gpa_labels, ordered = TRUE),
+    # numeric score for the GPA band (1 = lowest band, 6 = highest band)
+    `GPA band score`         = as.integer(factor(sessional_GPA,
+                                                 levels = gpa_levels))
+  )
+
+# Employed respondents only (used for the correlation and regression analyses)
+df_emp <- df |> filter(Employed == "Yes")
+
+quant_items    <- c("Course load", "Weekly study hours", "Weekly work hours",
+                    "Commute time (minutes)", "Work energy rating")
+work_items     <- c("Weekly work hours", "Commute time (minutes)",
+                    "Work energy rating")
+qual_items     <- c("Employed", "Work sector", "Missed a deadline", "GPA band")
+```
+
+# Prequisites
+
+Before rendering (one-time setup):
+Install R and RStudio. Recent RStudio versions include Quarto; otherwise
+   install Quarto from quarto.org.
+Install LaTeX for the PDF output: run  quarto install tinytex  in the
+   RStudio Terminal.
+Install the R packages: run
+     install.packages(c("tidyverse", "easystats", "knitr"))
+   in the R console.
+Put the responses csv file in the same folder as this .qmd file.
+
+To render:
+Open this file in RStudio and click "Render", or run
+    quarto render STA304_EDA_Report.qmd
+
+# Introduction
+
+This report explores the relationship between part-time employment and academic performance for Fall 2026 STA304 students. We collected 71 survey responses, with 22 employed and 49 unemployed students. The survey asked about employment status, weekly work hours, study hours, work energy, and sessional GPA. We begin with descriptive statistics to summarize the data and compare students based on their employment status. We then use correlation analysis to assess the relationships between work hours, work energy, and study hours among employed students. Finally, we use multiple linear regression to see how work hours and work energy relate to academic performance.
+
+# Summary statistics
+
+```{r}
+#| label: summary-quant-all
+#| tbl-cap: "Summary statistics for the quantitative variables (all respondents)."
+datawizard::describe_distribution(df, quant_items,
+                                  centrality = c("mean", "median")) |>
+  select(-any_of(c("Skewness", "Kurtosis", "n_Missing", "MAD"))) |>
+  print_md()
+```
+
+```{r}
+#| label: summary-quant-employed
+#| tbl-cap: "Summary statistics for the work-related variables (employed respondents only)."
+df |>
+  filter(Employed == "Yes") |>
+  datawizard::describe_distribution(work_items,
+                                    centrality = c("mean", "median")) |>
+  select(-any_of(c("Skewness", "Kurtosis", "n_Missing", "MAD"))) |>
+  print_md()
+```
+
+```{r}
+#| label: summary-qual
+#| tbl-cap: "Frequency table for the qualitative variables."
+datawizard::data_tabulate(df, qual_items) |>
+  print_md()
+```
+
+**Analysis:**   
+
+Of the 71 respondents, 22 (30.99%) were employed, and 49 (69.01%) were not. For the whole sample, students spent an average of 12.87 hours studying per week, with a median of 11 hours and a standard deviation of 8.57. There was a large variation since weekly study hours ranged from 0 to 40. The most common GPA ranges in the whole sample were 2.3–2.69 and 3.0–3.29, with 15 students in each.
+
+For employed students, the mean was 13.84 work hours per week (median = 10, SD = 9.90), and the average commute time was 32.82 minutes. Their mean work energy rating was 5.68. Most of them were employed in retail & services (9 students) or education & research (8 students). Of the 22 working students, 5(22.73%) missed a deadline due to work.
+
+# Plots and outlier checks
+
+```{r}
+#| label: fig-distributions
+#| fig-cap: "Histograms of the quantitative variables."
+#| fig-height: 6
+df |>
+  select(all_of(quant_items)) |>
+  pivot_longer(everything(), names_to = "Variable", values_to = "Value") |>
+  mutate(Variable = factor(Variable, levels = quant_items)) |>
+  ggplot(aes(x = Value)) +
+  geom_histogram(bins = 15, fill = "#6699FF", colour = "white") +
+  facet_wrap(~ Variable, scales = "free", ncol = 2) +
+  labs(x = "Value (units given in each panel title)",
+       y = "Number of respondents")
+```
+
+**Analysis:** 
+
+Figure 1 shows the distributions of the five quantitative variables. Most students were taking 4 or 5 courses. The weekly study hours were right-skewed, mostly between 5 and 20 hours, with some higher values including 30 and 40 hours. For weekly work hours, commute time, and work energy rating, there were many zero values because most students didn’t have jobs. Therefore, the employed-only summaries are more useful for understanding these variables. Among employed students, their work hours and commute times were spread across a wide range, up to 40 work hours and 90 minutes of commuting. These higher values might be potential outliers. Overall, the distributions are not symmetric.
+
+
+```{r}
+#| label: fig-study-employed
+#| fig-cap: "Weekly study hours by employment status."
+#| fig-height: 3.5
+ggplot(df, aes(x = Employed, y = `Weekly study hours`, fill = Employed)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6) +
+  geom_jitter(width = 0.12, alpha = 0.5) +
+  scale_fill_manual(values = c("#6699FF", "#FF6666")) +
+  labs(x = "Currently employed", y = "Weekly study hours") +
+  theme(legend.position = "none")
+```
+
+**Analysis:** 
+
+Figure 2 compares weekly study hours between students with and without jobs. Employed students had a slightly higher median study time of around 11.5 hours, compared to 10 hours for those who are unemployed. Even though the medians were close, study hours varied more in the employed group.
+
+```{r}
+#| label: tbl-gpa-employed
+#| tbl-cap: "Sessional GPA band by employment status (column percentages)."
+datawizard::data_tabulate(df, "GPA band", by = "Employed",
+                          proportions = "column") |>
+  print_md()
+```
+
+**Analysis:** 
+
+Table 4 compares the GPA distributions of students with and without jobs. About 54.5% of employed students and 34.7% of unemployed students had GPAs between 2.7 and 3.29. For GPAs of 3.3 or higher, the percentage was higher for unemployed students (38.8%) than for employed students (18.2%). This implies that students without jobs tend to have higher GPAs in our sample, but Table 4 only shows differences in GPA distributions, so we cannot say for sure if having a job affects students' GPAs.
+
+# Simple statistical test: correlation analysis
+
+For each work variable (weekly work hours and work energy rating), we find the sample correlation coefficient $r$ with weekly study hours, and test $H_0$: the true correlation is 0 against $H_a$: the true correlation is not 0. This is a $t$-test with $n - 2$ degrees of freedom, and it is equivalent to the $t$-test for the slope in a simple linear regression.
+
+## Checking assumptions
+
+This test assumes that the relationship between the two variables is roughly linear (see the scatterplots in the results below) and that the variables are approximately normally distributed. We check normality with normal Q-Q plots of the three variables for the employed respondents.
+
+```{r}
+#| label: fig-qq-simple
+#| fig-cap: "Normal Q-Q plots of weekly work hours, work energy rating, and weekly study hours (employed respondents). If a variable is approximately normal, the points fall along the line."
+#| fig-height: 3.5
+df_emp |>
+  select(`Weekly work hours`, `Work energy rating`, `Weekly study hours`) |>
+  pivot_longer(everything(), names_to = "Variable", values_to = "Value") |>
+  mutate(Variable = factor(Variable,
+                           levels = c("Weekly work hours", "Work energy rating",
+                                      "Weekly study hours"))) |>
+  ggplot(aes(sample = Value)) +
+  stat_qq(alpha = 0.7) +
+  stat_qq_line(colour = "#FF6666") +
+  facet_wrap(~ Variable, scales = "free") +
+  labs(x = "Theoretical normal quantiles", y = "Sample quantiles")
+```
+
+**Analysis:** 
+
+Figure 3 shows the normal Q-Q plots for weekly work hours, work energy rating, and weekly study hours among employed students. For each variable, the points follow the reference line fairly well in the middle but spread away from it at the ends. This shows that the data are not perfectly normally distributed, meaning the normality assumption is only roughly met.
+
+## Results
+
+```{r}
+#| label: cor-tests
+# Correlation tests with weekly study hours (employed respondents only)
+cor_hours  <- cor.test(~ `Weekly work hours` + `Weekly study hours`,
+                       data = df_emp)
+cor_energy <- cor.test(~ `Work energy rating` + `Weekly study hours`,
+                       data = df_emp)
+
+cor_tab <- tibble(
+  `Work variable` = c("Weekly work hours", "Work energy rating"),
+  r  = c(as.numeric(cor_hours$estimate), as.numeric(cor_energy$estimate)),
+  lo = c(cor_hours$conf.int[1], cor_energy$conf.int[1]),
+  hi = c(cor_hours$conf.int[2], cor_energy$conf.int[2]),
+  p  = c(cor_hours$p.value, cor_energy$p.value)
+) |>
+  mutate(label = sprintf("r = %.2f\n95%% CI [%.2f, %.2f]\np = %.3f",
+                         r, lo, hi, p))
+```
+
+```{r}
+#| label: fig-cor-scatter
+#| fig-cap: "Weekly study hours against weekly work hours (left) and against work energy rating (right) for employed respondents, with fitted lines and the correlation test results (correlation coefficient r, 95% confidence interval, and p-value) printed in each panel."
+#| fig-height: 4
+df_emp |>
+  select(`Weekly study hours`, `Weekly work hours`, `Work energy rating`) |>
+  pivot_longer(c(`Weekly work hours`, `Work energy rating`),
+               names_to = "Work variable", values_to = "Work value") |>
+  ggplot(aes(x = `Work value`, y = `Weekly study hours`)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", formula = y ~ x, colour = "#FF6666") +
+  geom_text(data = cor_tab, aes(label = label),
+            x = -Inf, y = Inf, hjust = -0.1, vjust = 1.2, size = 3,
+            inherit.aes = FALSE) +
+  facet_wrap(~ `Work variable`, scales = "free_x") +
+  labs(x = "Value of the work variable (hours per week, or rating)",
+       y = "Weekly study hours")
+```
+
+**Analysis:** 
+
+Figure 4 displays scatterplots of weekly study hours against weekly work hours (left) and work energy rating (right) for employed students, including fitted trend lines. The points are widely spread out in both graphs, and the trend lines are nearly flat. This indicates that there is little to no linear relationship between a student's study hours and either their work hours or their work energy rating.
+
+```{r}
+#| label: fig-cor-forest
+#| fig-cap: "Correlation coefficient r of each work variable with weekly study hours, with 95% confidence intervals."
+#| fig-height: 2.5
+ggplot(cor_tab, aes(x = r, y = `Work variable`)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_pointrange(aes(xmin = lo, xmax = hi), colour = "#6699FF") +
+  coord_cartesian(xlim = c(-1, 1)) +
+  labs(x = "Correlation with weekly study hours (95% confidence interval)",
+       y = NULL)
+```
+```{r}
+#| label: cor-report
+#| message: false
+report::report(cor_hours)
+report::report(cor_energy)
+```
+
+**Analysis:** 
+
+Figure 5 summarizes the correlation coefficients for each work variable with weekly study hours, along with their 95% confidence intervals. Because both confidence intervals cross the zero line, neither correlation is statistically significant. This confirms that neither weekly work hours nor work energy rating has a reliable linear connection to weekly study hours.
+
+
+**Conclusion:** 
+
+Based on the correlation analysis for employed students, neither weekly work hours nor work energy rating has a statistically significant relationship with weekly study hours. Therefore, we can conclude that within this sample, an employed student's work hours and work energy do not meaningfully change how many hours they spend studying.
+
+# Advanced statistical test: multiple linear regression
+
+We fit a multiple linear regression of the sessional GPA band score on weekly work hours and work energy rating, using the employed respondents.
+```{r}
+#| label: fit-model
+# Copy of the employed data with syntactic variable names (dots instead of
+# spaces), because report::report() cannot standardize models with
+# backticked names
+df_model <- df_emp |>
+  select(GPA.band.score     = `GPA band score`,
+         Weekly.work.hours  = `Weekly work hours`,
+         Work.energy.rating = `Work energy rating`)
+
+# Multiple linear regression: GPA band score (1-6) predicted by weekly work
+# hours and work energy rating
+model <- lm(GPA.band.score ~ Weekly.work.hours + Work.energy.rating,
+            data = df_model)
+```
+
+## Checking assumptions
+
+```{r}
+#| label: fig-check-model
+#| fig-cap: "Assumption checks for the multiple linear regression of GPA band score on weekly work hours and work energy rating."
+#| fig-width: 8
+#| fig-height: 8
+# Smaller text sizes and a wider figure keep the panel subtitles from overlapping
+performance::check_model(model,
+                         check = c("qq", "normality",
+                                   "linearity", "homogeneity"),
+                         base_size = 9, title_size = 11,
+                         axis_title_size = 9)
+```
+
+**Analysis:** 
+
+The normality Q-Q plot shows that most of the residuals are close to the horizontal reference line, and the distribution of residuals is approximately normal. This suggests that the normality assumption is reasonably met. However, for both the linearity and homogeneity of variance plots, the green reference lines are not completely flat and horizontal as expected. The linearity plot shows some curvature, especially at higher fitted values, while the homogeneity of variance plot shows changes in the spread of residuals. This suggests that both the linearity and constant variance assumptions may be violated. We will still proceed while keeping these possible violations in mind.
+
+## Results
+
+```{r}
+#| label: model-summary
+
+coef_tab <- parameters::model_parameters(model, standardize = "refit") |>
+  as.data.frame() |>
+  filter(Parameter != "(Intercept)") |>
+  mutate(Predictor = recode(Parameter,
+                            Weekly.work.hours  = "Weekly work hours",
+                            Work.energy.rating = "Work energy rating"))
+
+s  <- summary(model)
+fp <- pf(s$fstatistic[1], s$fstatistic[2], s$fstatistic[3],
+         lower.tail = FALSE)
+model_label <- sprintf(
+  "Overall model: R-squared = %.2f (adjusted %.2f), F(%.0f, %.0f) = %.2f, p = %.3f, n = %d",
+  s$r.squared, s$adj.r.squared, s$fstatistic[2], s$fstatistic[3],
+  s$fstatistic[1], fp, nrow(df_model))
+
+make_pred <- function(var, other, label) {
+  x    <- seq(min(df_model[[var]]), max(df_model[[var]]), length.out = 50)
+  nd   <- setNames(data.frame(x, mean(df_model[[other]])), c(var, other))
+  pred <- predict(model, newdata = nd, interval = "confidence")
+  data.frame(`Work variable` = label, x = x,
+             fit = pred[, "fit"], lwr = pred[, "lwr"], upr = pred[, "upr"],
+             check.names = FALSE)
+}
+pred_tab <- bind_rows(
+  make_pred("Weekly.work.hours",  "Work.energy.rating", "Weekly work hours"),
+  make_pred("Work.energy.rating", "Weekly.work.hours",  "Work energy rating"))
+```
+
+```{r}
+#| label: fig-coef
+#| fig-cap: "Standardized regression coefficients (effect of a one standard deviation increase in each predictor on GPA band, in standard deviations of GPA band) with 95% confidence intervals."
+#| fig-height: 3
+ggplot(coef_tab, aes(x = Coefficient, y = Predictor)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_pointrange(aes(xmin = CI_low, xmax = CI_high), colour = "#6699FF") +
+  labs(x = "Standardized coefficient for GPA band (95% confidence interval)",
+       y = NULL, subtitle = model_label)
+```
+
+**Analysis:** 
+
+Both variables have negative coefficients, with work energy rating showing a stronger negative relationship (β = -0.34) compared to weekly work hours (β = -0.22). However, both confidence intervals include zero, suggesting that neither variable has a statistically significant relationship with GPA band score. Hence, although both variables show a negative relationship with academic performance, there is not enough evidence to conclude that these relationships exist in the population.
+
+```{r}
+#| label: fig-predicted
+#| fig-cap: "Predicted sessional GPA band score across the observed range of weekly work hours (left) and work energy rating (right), holding the other predictor at its average, with 95% confidence bands."
+#| fig-height: 4
+ggplot(pred_tab, aes(x = x, y = fit)) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "#6699FF", alpha = 0.25) +
+  geom_line(colour = "#6699FF", linewidth = 1) +
+  facet_wrap(~ `Work variable`, scales = "free_x") +
+  coord_cartesian(ylim = c(1, 6)) +
+  labs(x = "Value of the work variable (hours per week, or rating)",
+       y = "Predicted GPA band score", subtitle = model_label)
+```
+```{r}
+#| label: model-report
+#| message: false
+report::report(model)
+```
+
+**Analysis:** 
+
+Both predicted lines show a downward trend, suggesting that as weekly work hours or work energy rating increases, the predicted GPA band score decreases. However, the confidence bands become wider, especially at the ends of the observed ranges, indicating that the estimates are less precise. Hence, although both variables show a negative relationship with academic performance, these trends should be interpreted with caution, as neither relationship is statistically significant.
+
+
+
+**Conclusion:** 
+
+The multiple linear regression analysis shows that both weekly work hours and work energy rating have a negative relationship with GPA band score among employed students. However, neither relationship is statistically significant, with p-values of 0.310 and 0.133. The overall regression model is also not statistically significant (p = 0.112). Therefore, although both variables show a negative relationship with academic performance in our sample, there is not enough evidence to conclude that these relationships exist in the population.
+
+# Appendix: Code {.appendix}
+
+```{r}
+#| label: appendix-code
+#| ref.label: [setup, load-data, summary-quant-all, summary-quant-employed, summary-qual, fig-distributions, fig-study-employed, tbl-gpa-employed, fig-qq-simple, cor-tests, fig-cor-scatter, fig-cor-forest, cor-report, fit-model, fig-check-model, model-summary, fig-coef, fig-predicted, model-report]
+#| echo: true
+#| eval: false
+```

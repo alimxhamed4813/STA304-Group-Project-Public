@@ -1,0 +1,17 @@
+You will need to email me when you have changed your survey for me to post on Piazza.
+
+Disclaimer: in the process of constructing feedback, I recorded my audio and got AI to rephrase my feedback in a concise, clear manner so that I can mark faster + you get more detailed feedback. I did not run any of the assignments through AI.
+
+Survey introduction
+You state that responses will be confidential. Please avoid that wording, because it does not accurately describe how the responses are handled. It is enough to say that you will not collect names, student numbers, or email addresses.
+(I removed it myself manually.)
+
+Commute question
+Your survey asks about commute time using three broad ranges. Please ask for the actual amount of time instead, in minutes or hours. Commute time is not a sensitive question, so respondents do not need the protection of a range, and exact values give you more information for your analysis.
+
+Energy exerted at work
+Your survey asks students to rate how much energy they exert at work, but it never defines what that means. Respondents could think of mental effort, physical effort, or both, and this is a subjective question, so different people will answer it differently. Please add a short definition of energy exertion. It would also help to describe what a 1 and a 10 on your scale represent, so everyone rates on a similar basis.
+
+(-0.05 from the questionnaire section due to questions of the proposal needing to be constructed better)
+
+Grade: 0.95/1
